@@ -12,6 +12,7 @@ func (druid *Druid) registerLacerateSpell() {
 		return
 	}
 	initialDamageMul := 1.0
+	furyOfStormrage4p := druid.HasSetBonus(ItemSetFuryOfStormrage, 4)
 
 	switch druid.Ranged().ID {
 	case IdolOfCruelty:
@@ -22,6 +23,7 @@ func (druid *Druid) registerLacerateSpell() {
 	druid.Lacerate = druid.RegisterSpell(Bear, core.SpellConfig{
 		ActionID:    core.ActionID{SpellID: 414644},
 		SpellSchool: core.SpellSchoolPhysical,
+		SpellCode:   SpellCode_DruidLacerateDirect,
 		DefenseType: core.DefenseTypeMelee,
 		ProcMask:    core.ProcMaskMeleeMHSpecial,
 		Flags:       SpellFlagOmen | core.SpellFlagMeleeMetrics | core.SpellFlagAPL,
@@ -38,14 +40,20 @@ func (druid *Druid) registerLacerateSpell() {
 		},
 
 		DamageMultiplier: initialDamageMul,
-		ThreatMultiplier: 3.25,
+		ThreatMultiplier: 3.33,
 		// TODO: Berserk 3 target lacerate cleave - Saeyon
 
 		ApplyEffects: func(sim *core.Simulation, target *core.Unit, spell *core.Spell) {
 			baseDamage := (spell.Unit.MHWeaponDamage(sim, spell.MeleeAttackPower()) * .2) * float64(druid.LacerateBleed.Dot(target).GetStacks())
 
 			spell.DamageMultiplier = initialDamageMul
+			stormrageBonusCrit := 0.0
+			if furyOfStormrage4p {
+				stormrageBonusCrit = druid.GetFuryOfStormrage4pCrit(target)
+			}
+			spell.BonusCritRating += stormrageBonusCrit
 			result := spell.CalcAndDealDamage(sim, target, baseDamage, spell.OutcomeMeleeSpecialHitAndCrit)
+			spell.BonusCritRating -= stormrageBonusCrit
 
 			if result.Landed() {
 				druid.LacerateBleed.Cast(sim, target)
@@ -75,12 +83,12 @@ func (druid *Druid) registerLacerateBleedSpell() {
 	druid.LacerateBleed = druid.RegisterSpell(Bear, core.SpellConfig{
 		ActionID:    core.ActionID{SpellID: 414647},
 		SpellSchool: core.SpellSchoolPhysical,
-		SpellCode:   SpellCode_DruidLacerate,
+		SpellCode:   SpellCode_DruidLacerateDot,
 		ProcMask:    core.ProcMaskEmpty,
 		Flags:       core.SpellFlagMeleeMetrics | core.SpellFlagNoOnCastComplete,
 
 		DamageMultiplier: 1,
-		ThreatMultiplier: 3.4,
+		ThreatMultiplier: 3.33,
 
 		Dot: core.DotConfig{
 			Aura: core.Aura{

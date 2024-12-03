@@ -26,7 +26,8 @@ const (
 	SpellCode_DruidMangleCat
 	SpellCode_DruidMangleBear
 	SpellCode_DruidSwipeCat
-	SpellCode_DruidLacerate
+	SpellCode_DruidLacerateDirect
+	SpellCode_DruidLacerateDot
 	SpellCode_DruidSwipeBear
 	SpellCode_DruidMaul
 	SpellCode_DruidMoonfire
@@ -328,6 +329,13 @@ func (druid *Druid) HasRune(rune proto.DruidRune) bool {
 
 func (druid *Druid) baseRuneAbilityDamage() float64 {
 	return 9.183105 + 0.616405*float64(druid.Level) + 0.028608*float64(druid.Level*druid.Level)
+}
+
+func (druid *Druid) GetFuryOfStormrage4pCrit(target *core.Unit) float64 {
+	if druid.LacerateBleed.Dot(target).GetStacks() == 0 {
+		return 0
+	}
+	return 5 * core.SpellCritRatingPerCritChance
 }
 
 // Agent is a generic way to access underlying druid on any of the agents (for example balance druid.)

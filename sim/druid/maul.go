@@ -8,6 +8,7 @@ import (
 func (druid *Druid) registerMaulSpell(realismICD *core.Cooldown) {
 	flatBaseDamage := 128.0
 	rageCost := 15 - float64(druid.Talents.Ferocity)
+	furyOfStormrage4p := druid.HasSetBonus(ItemSetFuryOfStormrage, 4)
 
 	switch druid.Ranged().ID {
 	case IdolOfBrutality:
@@ -29,7 +30,7 @@ func (druid *Druid) registerMaulSpell(realismICD *core.Cooldown) {
 		},
 
 		DamageMultiplier: 1 + .1*float64(druid.Talents.SavageFury),
-		ThreatMultiplier: 1,
+		ThreatMultiplier: 1.75,
 
 		ApplyEffects: func(sim *core.Simulation, target *core.Unit, spell *core.Spell) {
 			// Need to specially deactivate CC here in case maul is cast simultaneously with another spell.
@@ -39,12 +40,16 @@ func (druid *Druid) registerMaulSpell(realismICD *core.Cooldown) {
 
 			baseDamage := flatBaseDamage + spell.Unit.MHWeaponDamage(sim, spell.MeleeAttackPower())
 
+			stormrageBonusCrit := 0.0
+			if furyOfStormrage4p {
+				stormrageBonusCrit = druid.GetFuryOfStormrage4pCrit(target)
+			}
+			spell.BonusCritRating += stormrageBonusCrit
 			result := spell.CalcAndDealDamage(sim, target, baseDamage, spell.OutcomeMeleeSpecialHitAndCrit)
+			spell.BonusCritRating -= stormrageBonusCrit
 
 			if !result.Landed() {
 				spell.IssueRefund(sim)
-			} else {
-				spell.DealDamage(sim, result)
 			}
 
 			if druid.HasRune(proto.DruidRune_RuneHelmGore) && sim.Proc(0.15, "Gore") {
