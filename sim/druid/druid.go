@@ -138,8 +138,10 @@ type Druid struct {
 	// Extra data used for various calculations and overrides
 	AllowRakeRipDoTCrits              bool // From T1 Feral 4p bonus
 	FerociousBiteExcessEnergyOverride bool // When true, disables the excess energy consumption of Ferocious bite
-	FuryOfStormrageCritRatingBonus    float64
-	CenarionRageThreatBonus           float64
+	FuryOfStormrageLacerateSpread     bool // When true, spreads Lacerate from main target with Swipe(Bear)
+	FuryOfStormrageMaulCleave         bool // When true, Maul should cleave a second target
+	BearFormThreatMultiplier          float64
+	CenarionRageEnrageBonus           bool
 	// Sunfire/Moonfire modifiers applied when in Moonkin form
 	MoonfireDotMultiplier float64
 	ShredPositionOverride bool
@@ -257,8 +259,6 @@ func (druid *Druid) RegisterFeralTankSpells() {
 	// druid.registerDemoralizingRoarSpell()
 	druid.registerEnrageSpell()
 	druid.registerFrenziedRegenerationCD()
-	druid.registerRakeSpell()
-	druid.registerRipSpell()
 	druid.registerMaulSpell()
 	// druid.registerSurvivalInstinctsCD()
 	druid.registerSwipeBearSpell()

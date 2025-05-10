@@ -8,9 +8,6 @@ import (
 	"github.com/wowsims/sod/sim/core/stats"
 )
 
-var Tank2PieceAqAura *core.Aura
-var Tank2PieceAqProcAura *core.Aura
-
 var ItemSetGenesisEclipse = core.NewItemSet(core.ItemSet{
 	Name: "Genesis Eclipse",
 	Bonuses: map[int32]core.ApplyEffect{
@@ -145,11 +142,17 @@ func (druid *Druid) applyTAQFeral4PBonus() {
 		ActionID: core.ActionID{SpellID: 1213174}, // Tracking in APL
 		Label:    label,
 		OnSpellHitDealt: func(aura *core.Aura, sim *core.Simulation, spell *core.Spell, result *core.SpellResult) {
-			if druid.form != Cat {
+			if !result.Outcome.Matches(core.OutcomeCrit) {
 				return
 			}
-			if !result.Outcome.Matches(core.OutcomeCrit) || !(spell == druid.Shred.Spell || spell == druid.MangleCat.Spell || spell == druid.MangleBear.Spell || spell == druid.FerociousBite.Spell) {
-				return
+			if druid.form == Cat {
+				if !(spell == druid.Shred.Spell || spell == druid.MangleCat.Spell || spell == druid.FerociousBite.Spell) {
+					return
+				}
+			} else if druid.form == Bear {
+				if spell != druid.MangleBear.Spell {
+					return
+				}
 			}
 
 			dot := toothAndClawSpell.Dot(result.Target)
@@ -198,7 +201,7 @@ func (druid *Druid) applyTAQGuardian2PBonus() {
 		return
 	}
 
-	Tank2PieceAqProcAura = druid.RegisterAura(core.Aura{
+	var Tank2PieceAqProcAura = druid.RegisterAura(core.Aura{
 		Label:     "Guardian 2P Bonus Proc",
 		ActionID:  core.ActionID{SpellID: 1213188},
 		Duration:  time.Second * 10,
@@ -211,8 +214,8 @@ func (druid *Druid) applyTAQGuardian2PBonus() {
 		},
 	})
 
-	Tank2PieceAqAura = core.MakePermanent(druid.RegisterAura(core.Aura{
-		Label: "S03 - Item - TAQ - Druid - Guardian 2P Bonus",
+	core.MakePermanent(druid.RegisterAura(core.Aura{
+		Label: label,
 		OnSpellHitTaken: func(aura *core.Aura, sim *core.Simulation, spell *core.Spell, result *core.SpellResult) {
 			if druid.form == Bear && spell.ProcMask.Matches(core.ProcMaskMelee) && result.Outcome.Matches(core.OutcomeDodge) {
 				Tank2PieceAqProcAura.Activate(sim)
@@ -221,7 +224,7 @@ func (druid *Druid) applyTAQGuardian2PBonus() {
 		},
 		OnSpellHitDealt: func(aura *core.Aura, sim *core.Simulation, spell *core.Spell, result *core.SpellResult) {
 			if spell.SpellCode == SpellCode_DruidMangleBear || spell.SpellCode == SpellCode_DruidSwipeBear {
-				Tank2PieceAqProcAura.SetStacks(sim, 0)
+				Tank2PieceAqProcAura.Deactivate(sim)
 			}
 		},
 	}))
@@ -232,16 +235,17 @@ func (druid *Druid) applyTAQGuardian4PBonus() {
 	if !druid.HasRune(proto.DruidRune_RuneHandsMangle) {
 		return
 	}
-	druid.OnSpellRegistered(func(spell *core.Spell) {
-		if spell.SpellCode == SpellCode_DruidMangleBear {
-			spell.CD.FlatModifier -= 1500 * time.Millisecond
-		}
-	})
-	druid.OnInit(func(spell *core.Spell) {
-		if spell.SpellCode == SpellCode_DruidMangleBear {
-			spell.CD.FlatModifier -= 1500 * time.Millisecond
-		}
-	})
+	label := "S03 - Item - TAQ - Druid - Guardian 4P Bonus"
+	if druid.HasAura(label) {
+		return
+	}
+
+	core.MakePermanent(druid.RegisterAura(core.Aura{
+		Label:      label,
+		OnInit: func(aura *core.Aura, sim *core.Simulation) {
+			druid.MangleBear.CD.FlatModifier -= 1500 * time.Millisecond
+		},
+	}))
 }
 
 var ItemSetSymbolsOfUnendingLife = core.NewItemSet(core.ItemSet{

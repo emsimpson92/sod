@@ -51,7 +51,7 @@ var maulSpells = []MaulRankInfo{
 
 func (druid *Druid) registerMaulSpell() {
 	queuedRealismICD := &core.Cooldown{
-		Timer:    bear.NewTimer(),
+		Timer:    druid.NewTimer(),
 		Duration: core.SpellBatchWindow * 10,
 	}
 
@@ -70,7 +70,6 @@ func (druid *Druid) registerMaulSpell() {
 func (druid *Druid) newMaulSpellConfig(maulRank MaulRankInfo) core.SpellConfig {
 	flatBaseDamage := maulRank.damage
 	rageCost := 15 - float64(druid.Talents.Ferocity)
-	hasLacerate := druid.HasRune(proto.DruidRune_RuneLegsLacerate)
 	hasGore := druid.HasRune(proto.DruidRune_RuneHelmGore)
 
 	switch druid.Ranged().ID {
@@ -102,23 +101,24 @@ func (druid *Druid) newMaulSpellConfig(maulRank MaulRankInfo) core.SpellConfig {
 			}
 
 			baseDamage := flatBaseDamage + spell.Unit.MHWeaponDamage(sim, spell.MeleeAttackPower())
+			targetCount := core.TernaryInt32(druid.FuryOfStormrageMaulCleave, 2, 1)
+			numHits := min(targetCount, druid.Env.GetNumTargets())
+			results := make([]*core.SpellResult, numHits)
 
-			dotBonusCrit := 0.0
-			if hasLacerate && druid.LacerateBleed.Dot(target).GetStacks() > 0 {
-				dotBonusCrit = druid.FuryOfStormrageCritRatingBonus
+			for idx := range results {
+				results[idx] = spell.CalcAndDealDamage(sim, target, baseDamage, spell.OutcomeMeleeSpecialHitAndCrit)
+
+				if results[idx].Landed() {
+					if hasGore && sim.Proc(0.15, "Gore") {
+						druid.AddRage(sim, 10.0, rageMetrics)
+						druid.MangleBear.CD.Reset()
+					}
+				}
+				target = sim.Environment.NextTargetUnit(target)
 			}
 
-			spell.BonusCritRating += dotBonusCrit
-			result := spell.CalcAndDealDamage(sim, target, baseDamage, spell.OutcomeMeleeSpecialHitAndCrit)
-			spell.BonusCritRating -= dotBonusCrit
-
-			if !result.Landed() {
+			if !results[0].Landed() {
 				spell.IssueRefund(sim)
-			}
-
-			if hasGore && sim.Proc(0.15, "Gore") {
-				druid.AddRage(sim, 10.0, rageMetrics)
-				druid.MangleBear.CD.Reset()
 			}
 
 			if druid.curQueueAura != nil {

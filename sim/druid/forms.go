@@ -157,7 +157,6 @@ func (druid *Druid) registerCatFormSpell() {
 			}
 
 			if !druid.Env.MeasuringStats {
-				druid.AutoAttacks.SetReplaceMHSwing(nil)
 				druid.AutoAttacks.EnableAutoSwing(sim)
 				druid.manageCooldownsEnabled()
 				druid.UpdateManaRegenRates()
@@ -292,6 +291,8 @@ func (druid *Druid) registerBearFormSpell() {
 	clawWeapon := druid.GetBearWeapon()
 	predBonus := stats.Stats{}
 
+	druid.BearFormThreatMultiplier = 1.3 + 0.03 * float64(druid.Talents.FeralInstinct)
+
 	druid.BearFormAura = druid.RegisterAura(core.Aura{
 		Label:      "Bear Form",
 		ActionID:   actionID,
@@ -302,13 +303,12 @@ func (druid *Druid) registerBearFormSpell() {
 				druid.CancelShapeshift(sim)
 			}
 			druid.form = Bear
+			druid.SetShapeshift(aura)
 			druid.SetCurrentPowerBar(core.RageBar)
-			druid.PrimalFuryAura.Activate(sim)
 
 			druid.AutoAttacks.SetMH(clawWeapon)
 
-			druid.PseudoStats.ThreatMultiplier += druid.CenarionRageThreatBonus
-			druid.PseudoStats.ThreatMultiplier += .3 + .03*float64(druid.Talents.FeralInstinct)
+			druid.PseudoStats.ThreatMultiplier *= druid.BearFormThreatMultiplier
 			druid.PseudoStats.DamageTakenMultiplier *= sotfdtm
 
 			predBonus = druid.GetDynamicPredStrikeStats()
@@ -332,26 +332,25 @@ func (druid *Druid) registerBearFormSpell() {
 		},
 		OnExpire: func(aura *core.Aura, sim *core.Simulation) {
 			druid.form = Humanoid
+			druid.SetShapeshift(nil)
 			druid.SetCurrentPowerBar(core.ManaBar)
-			druid.PrimalFuryAura.Deactivate(sim)
 
 			druid.AutoAttacks.SetMH(druid.WeaponFromMainHand())
 
-			druid.PseudoStats.ThreatMultiplier -= druid.CenarionRageThreatBonus
-			druid.PseudoStats.ThreatMultiplier -= .3 + .03*float64(druid.Talents.FeralInstinct)
+			druid.PseudoStats.ThreatMultiplier /= druid.BearFormThreatMultiplier
 			druid.PseudoStats.DamageTakenMultiplier /= sotfdtm
 
 			druid.AddStatsDynamic(sim, predBonus.Invert())
 			druid.AddStatsDynamic(sim, statBonus.Invert())
 			druid.RemoveDynamicEquipScaling(sim, stats.Armor, core.TernaryFloat64(druid.Level < 40, 1.8, 4.6))
 			druid.RemoveDynamicEquipScaling(sim, stats.Armor, 1+.02*float64(druid.Talents.ThickHide))
+			druid.DisableDynamicStatDep(sim, feralApDep)
 
 			if hotwDep != nil {
 				druid.DisableDynamicStatDep(sim, hotwDep)
 			}
 
 			if !druid.Env.MeasuringStats {
-				druid.AutoAttacks.SetReplaceMHSwing(nil)
 				druid.AutoAttacks.EnableAutoSwing(sim)
 
 				druid.manageCooldownsEnabled()
